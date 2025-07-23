@@ -19,6 +19,7 @@ import itertools
 import threading
 import time
 import sys
+import queue
 
 def print_progress_bar(iteration, total, prefix='', suffix='', length=50, fill='█'):
     percent = f"{100 * (iteration / float(total)):.1f}"
@@ -213,7 +214,6 @@ def export_results_to_html(results, filename="scan_results.html"):
 </body>
 </html>
 """
-
     with open(filename, "w", encoding="utf-8") as f:
         f.write(html_content)
     print(f"[*] HTML report saved to {filename}")
@@ -265,6 +265,9 @@ def run_nmap_scan(target, ports=None, use_sudo=True, output_file=None, export_js
     else:
         cmd += ["--script", "default,vuln"]
 
+    cmd += ["--script-timeout", "60s"]
+    cmd += ["--host-timeout", "15m"]
+
     if use_pn:
         cmd.insert(1, "-Pn")
     if use_sudo:
@@ -278,11 +281,17 @@ def run_nmap_scan(target, ports=None, use_sudo=True, output_file=None, export_js
         spinner_thread = threading.Thread(target=show_spinner, args=(stop_event,))
         spinner_thread.start()
         
-        try: 
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-        finally:
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
+        except subprocess.TimeoutExpired:
             stop_event.set()
             spinner_thread.join()
+            write_output("[ERROR] ❌ Nmap scan timed out. Try reducing ports/scripts or increase timeout.\n", output_file)
+            return []
+
+        stop_event.set()
+        spinner_thread.join()
+
         nmap_xml = result.stdout
 
         if not nmap_xml.strip():
@@ -352,7 +361,7 @@ def run_nmap_scan(target, ports=None, use_sudo=True, output_file=None, export_js
                             summary = meta.get("summary", summary)
                             description = meta.get("description", description)
                             references = meta.get("references", references)
-                            break  # Stop after first successful enrichment
+                            break
 
                 entry = {
                     "status": "OPEN",
@@ -419,7 +428,7 @@ def scan_ports(target, port_range, threads=100, grab_banner=False, show_all=Fals
         start_port = end_port = int(port_range)
     
     total_ports = end_port - start_port + 1
-    progress = [0]  # mutable counter for thread-safe updates
+    progress = [0]
     print_progress_bar(0, total_ports, prefix='Progress', suffix='Starting', length=40)
 
     open_ports = []
@@ -434,62 +443,68 @@ def scan_ports(target, port_range, threads=100, grab_banner=False, show_all=Fals
         "T5": 0.05
     }
     delay = timing_profiles.get(timing_profile.upper(), 0.5)
-
-    def scan(port):
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(1)
-            result = s.connect_ex((target, port))
-            if result == 0:
-                service = get_service_name(port)
-                output = f"[OPEN]  {target}:{port}  →  {service}"
-                banner_info = ""
-                if grab_banner:
-                    banner = grab_tcp_banner(target, port)
-                    if banner:
-                        if len(banner) > 200:
-                            banner_info = f"\n        Banner: {banner[:200]}... (truncated)"
-                        else:
-                            banner_info = f"\n        Banner: {banner}"
-
-                        vuln = detect_vulnerabilities(banner)
-                        if vuln:
-                            banner_info += f"\n        Vulnerability: {vuln}"
-
-                        script_results = run_detection_scripts(target, port, service, banner)
-                        for res in script_results:
-                            banner_info += f"\n        Vulnerability: {res}"
-
-                with lock:
-                    full_output = output + banner_info
-                    open_ports.append(full_output)
-                    write_output(full_output, output_file)
-            elif show_all:
-                with lock:
-                    msg = f"[CLOSED] {target}:{port}"
-                    open_ports.append(msg)
-                    write_output(msg, output_file)
-            s.close()
-        except Exception as e:
-            if show_all:
-                with lock:
-                    msg = f"[ERROR] {target}:{port} - {e}"
-                    open_ports.append(msg)
-                    write_output(msg, output_file)
-        finally:
-            with lock:
-                progress[0] += 1
-                print_progress_bar(progress[0], total_ports, prefix='Progress', suffix='Complete', length=40)
-
-
-    threads_list = []
+    
+    port_queue = queue.Queue()
     for port in range(start_port, end_port + 1):
-        t = threading.Thread(target=scan, args=(port,))
-        threads_list.append(t)
-        t.start()
-        time.sleep(delay)
+        port_queue.put(port)
 
-    for t in threads_list:
+    def scan_worker():
+        while not port_queue.empty():
+            port = port_queue.get()
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(1)
+                result = s.connect_ex((target, port))
+                if result == 0:
+                    service = get_service_name(port)
+                    output = f"[OPEN]  {target}:{port}  →  {service}"
+                    banner_info = ""
+                    if grab_banner:
+                        banner = grab_tcp_banner(target, port)
+                        if banner:
+                            if len(banner) > 200:
+                                banner_info = f"\n        Banner: {banner[:200]}... (truncated)"
+                            else:
+                                banner_info = f"\n        Banner: {banner}"
+
+                            vuln = detect_vulnerabilities(banner)
+                            if vuln:
+                                banner_info += f"\n        Vulnerability: {vuln}"
+
+                            script_results = run_detection_scripts(target, port, service, banner)
+                            for res in script_results:
+                                banner_info += f"\n        Vulnerability: {res}"
+
+                    with lock:
+                        full_output = output + banner_info
+                        open_ports.append(full_output)
+                        write_output(full_output, output_file)
+                elif show_all:
+                    with lock:
+                        msg = f"[CLOSED] {target}:{port}"
+                        open_ports.append(msg)
+                        write_output(msg, output_file)
+                s.close()
+            except Exception as e:
+                if show_all:
+                    with lock:
+                        msg = f"[ERROR] {target}:{port} - {e}"
+                        open_ports.append(msg)
+                        write_output(msg, output_file)
+            finally:
+                with lock:
+                    progress[0] += 1
+                    print_progress_bar(progress[0], total_ports, prefix='Progress', suffix='Complete', length=40)
+            time.sleep(delay)
+
+    num_threads = min(threads, total_ports)
+    thread_list = []
+    for _ in range(num_threads):
+        t = threading.Thread(target=scan_worker)
+        thread_list.append(t)
+        t.start()
+
+    for t in thread_list:
         t.join()
 
     return open_ports
@@ -497,55 +512,58 @@ def scan_ports(target, port_range, threads=100, grab_banner=False, show_all=Fals
 # === UDP SCANNER ===
 def scan_udp(target, ports, output_file=None):
     results = []
-    threads = []
     lock = threading.Lock()
+    port_queue = queue.Queue()
 
-    def udp_scan(port):
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.settimeout(2)
-            s.sendto(b'\x00', (target, port))
+    def udp_worker():
+        while not port_queue.empty():
+            port = port_queue.get()
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.settimeout(2)
+                s.sendto(b'\x00', (target, port))
 
-            data, _ = s.recvfrom(1024)
-            banner = data.decode(errors='ignore').strip()
+                data, _ = s.recvfrom(1024)
+                banner = data.decode(errors='ignore').strip()
 
-            service = get_service_name(port)
-            output = f"[OPEN]  {target}:{port}/UDP  →  {service}"
-            vuln_info = ""
+                service = get_service_name(port)
+                output = f"[OPEN]  {target}:{port}/UDP  →  {service}"
+                vuln_info = ""
 
-            if banner:
-                vuln = detect_vulnerabilities(f"{service.lower()}/udp")
-                if vuln:
-                    vuln_info = f"\n        Vulnerability: {vuln}"
+                if banner:
+                    vuln = detect_vulnerabilities(f"{service.lower()}/udp")
+                    if vuln:
+                        vuln_info = f"\n        Vulnerability: {vuln}"
 
-                if len(banner) > 200:
-                    output += f"\n        Banner: {banner[:200]}... (truncated)"
-                else:
-                    output += f"\n        Banner: {banner}"
+                    if len(banner) > 200:
+                        output += f"\n        Banner: {banner[:200]}... (truncated)"
+                    else:
+                        output += f"\n        Banner: {banner}"
 
-            with lock:
-                results.append(output + vuln_info)
-                write_output(output + vuln_info, output_file)
+                with lock:
+                    results.append(output + vuln_info)
+                    write_output(output + vuln_info, output_file)
 
-        except socket.timeout:
-            msg = f"[FILTERED] {target}:{port}/UDP"
-            with lock:
-                results.append(msg)
-                write_output(msg, output_file)
-        except Exception as e:
-            msg = f"[ERROR] {target}:{port}/UDP - {e}"
-            with lock:
-                results.append(msg)
-                write_output(msg, output_file)
-        finally:
-            s.close()
+            except socket.timeout:
+                msg = f"[FILTERED] {target}:{port}/UDP"
+                with lock:
+                    results.append(msg)
+                    write_output(msg, output_file)
+            except Exception as e:
+                msg = f"[ERROR] {target}:{port}/UDP - {e}"
+                with lock:
+                    results.append(msg)
+                    write_output(msg, output_file)
+            finally:
+                s.close()
 
-    for port in ports:
-        t = threading.Thread(target=udp_scan, args=(port,))
-        threads.append(t)
+    thread_list = []
+    for _ in range(min(100, len(ports))):
+        t = threading.Thread(target=udp_worker)
+        thread_list.append(t)
         t.start()
 
-    for t in threads:
+    for t in thread_list:
         t.join()
 
     return results
@@ -573,6 +591,9 @@ def main():
     parser.add_argument("--nmap-script", help="Run specific Nmap NSE script (e.g. vuln, http-vuln*)")
 
     args = parser.parse_args()
+    
+    if not args.ports:
+        args.ports = "0-65535"
 
     if args.output:
         with open(args.output, 'w') as f:

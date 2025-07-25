@@ -580,6 +580,8 @@ def scan_udp(target, ports, output_file=None):
 # ===  ===
 
 def run_post_scan_nmap(args, all_results):
+    nmap_results = []
+
     if args.ad_scan:
         nmap_results = run_nmap_scan(
         target=args.target,
@@ -592,7 +594,7 @@ def run_post_scan_nmap(args, all_results):
         script=args.script
     )
     nmap_results = enrich_vulnerabilities_with_metadata(nmap_results)
-    all_results += nmap_results
+    all_results.extend(nmap_results)
 
     if args.json or args.csv or args.html:
         export_results_to_json_csv(all_results, json_enabled=args.json, csv_enabled=args.csv)

@@ -87,9 +87,29 @@ def fetch_vuln_data(cve_id):
         print(f"[!] Error fetching metadata for {cve_id}: {e}")
         return {}
 
-def export_results_to_json_csv(results, json_enabled=False, csv_enabled=False):
-    if not results:
-        return
+def export_results_to_json_csv(results, output_file=None, json_enabled=False, csv_enabled=False):
+    if output_file:
+        base_filename = os.path.splitext(output_file)[0]  
+    else:
+        base_filename = "scan_results"
+
+    if json_enabled:
+        json_file = base_filename + ".json"
+        try:
+            with open(json_file, "w") as jf:
+                json.dump(results, jf, indent=4)
+        except Exception as e:
+            print(f"[ERROR] Failed to write JSON output: {e}")
+
+    if csv_enabled:
+        csv_file = base_filename + ".csv"
+        try:
+            with open(csv_file, "w", newline="") as cf:
+                writer = csv.DictWriter(cf, fieldnames=results[0].keys())
+                writer.writeheader()
+                writer.writerows(results)
+        except Exception as e:
+            print(f"[ERROR] Failed to write CSV output: {e}")
 
     structured = []
     for entry in results:
@@ -114,11 +134,11 @@ def export_results_to_json_csv(results, json_enabled=False, csv_enabled=False):
         return
 
     if json_enabled:
-        with open("scan_results.json", "w") as jf:
-            json.dump(structured, jf, indent=4)
+        with open(f"{output_file}.json", "w") as jf:
+            json.dump(results, jf, indent=4)
 
     if csv_enabled:
-        with open("scan_results.csv", "w", newline='') as cf:
+        with open(f"{output_file}.csv", "w", newline='') as cf:
             writer = csv.DictWriter(cf, fieldnames=structured[0].keys())
             writer.writeheader()
             writer.writerows(structured)
@@ -389,14 +409,41 @@ def run_nmap_scan(target, ports=None, use_sudo=True, output_file=None, export_js
 
                 results.append(entry)
 
-                line = f"[OPEN] {address}:{port_id}/{protocol.upper()} → {service}"
+                write_output(f"[OPEN] {address}:{port_id}/{protocol.upper()} → {service}", output_file)
+
                 if banner:
-                    line += f" | Banner: {banner}"
+                    write_output(f"    Banner: {banner}", output_file)
+
                 if entry["vulnerability"]:
-                    line += f" | Vulnerability: {entry['vulnerability']}"
-                if entry["cve"]:
-                    line += f" | CVE: {entry['cve']}"
-                write_output(line, output_file)
+                    write_output("    Vulnerabilities:", output_file)
+                    for vuln_line in entry["vulnerability"].split("\\n"):
+                        write_output(f"        {vuln_line.strip().replace('\\t', '    ')}", output_file)
+
+                if entry["cve"]:   
+                    write_output(f"    CVEs: {entry['cve']}", output_file)
+
+                if entry["cwe"]:
+                    write_output(f"    CWE: {entry['cwe']}", output_file)
+
+                if entry["severity"]:
+                    write_output(f"    Severity: {entry['severity']}", output_file)
+
+                if entry["cvss"]:
+                    write_output(f"    CVSS Score: {entry['cvss']}", output_file)
+
+                if entry["summary"]:
+                    write_output(f"    Summary: {entry['summary']}", output_file)
+
+                if entry["description"]:
+                    write_output("    Description:", output_file)
+                    for line in entry["description"].split(". "):
+                        write_output(f"        {line.strip()}", output_file)
+
+                if entry["references"]:
+                    write_output("    References:", output_file)
+                    for ref in entry["references"]:
+                        write_output(f"        {ref}", output_file)
+
 
         return results
 
@@ -597,7 +644,7 @@ def run_post_scan_nmap(args, all_results):
     all_results.extend(nmap_results)
 
     if args.json or args.csv or args.html:
-        export_results_to_json_csv(all_results, json_enabled=args.json, csv_enabled=args.csv)
+        export_results_to_json_csv(all_results, json_enabled=args.json, csv_enabled=args.csv, output_file=args.output)
         if args.html:
             export_results_to_html(all_results, filename=args.html_file or "scan_results.html")
             
@@ -611,10 +658,10 @@ def main():
     parser.add_argument('--threads', type=int, default=300)
     parser.add_argument('--discover', action='store_true')
     parser.add_argument('--show-all', action='store_true')
-    parser.add_argument('--output')
+    parser.add_argument("-o", "--output", help="Save output to file")
     parser.add_argument('-O', '--os-detect', action='store_true', default=True)
     parser.add_argument('-T', '--timing', default='T5')
-    parser.add_argument('--json', action='store_true')
+    parser.add_argument('--json', action='store_true', help='Export results to JSON file')
     parser.add_argument('--csv', action='store_true')
     parser.add_argument('--html', action='store_true', help='Export scan results to HTML')
     parser.add_argument('--html-file', help='Custom HTML report filename (default: scan_results.html)')  
@@ -627,6 +674,20 @@ def main():
     
     if not args.ports or args.ports.strip() == "":
         args.ports = "0-65535"
+
+    if args.output:
+        if not args.output.endswith(".txt") and not args.output.endswith(".json") and not args.output.endswith(".csv"):
+            args.output += ".txt"  # Default to .txt if user didn't specify an extension
+
+    if args.output:
+        base = args.output
+        if not base.endswith(".txt"):
+            output_file = f"{base}.txt"
+        else:
+            output_file = base
+
+        json_file = base.replace(".txt", "") + ".json"
+        csv_file = base.replace(".txt", "") + ".csv"
 
     if args.output:
         with open(args.output, 'w') as f:
@@ -706,7 +767,7 @@ def main():
             all_results += nmap_results
 
         if args.json or args.csv or args.html:
-            export_results_to_json_csv(all_results, json_enabled=args.json, csv_enabled=args.csv)
+            export_results_to_json_csv(all_results, output_file=args.output, json_enabled=args.json, csv_enabled=args.csv)
             if args.html:
                 export_results_to_html(all_results, filename=args.html_file or "scan_results.html")
 

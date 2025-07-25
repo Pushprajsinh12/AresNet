@@ -27,11 +27,11 @@ AresNet is a powerful Python-based advanced network and vulnerability scanner th
 
 <p><em>📌 Help Menu: AresNet's CLI usage and supported flags</em></p>
 
-<img width="643" height="422" alt="ipscan" src="https://github.com/user-attachments/assets/dcc683cd-0c16-4f51-a577-63e76de259b2" />
+<img width="643" height="422" alt="ipscan" src="https://github.com/user-attachments/assets/957c76f1-2003-4e1c-ad51-920ad45f563a" />
 
 <p><em>🚀 Scan Progress with Real-time Output Display</em></p>
 
-<img width="1440" height="773" alt="advanced scan" src="https://github.com/user-attachments/assets/2c947e33-2a90-4a54-8119-fb898c511c32" />
+<img width="1440" height="773" alt="advanced scan" src="https://github.com/user-attachments/assets/4506b576-ea07-45ce-9f1d-db0028e5bd72" />
 
 <p><em>🔍 Live Scan Output: Scanning IP with detailed vulnerabilities, services, CVSS scores, and references</em></p>
 

@@ -1,6 +1,6 @@
 import ftplib
 
-def run(ip, port, banner=None):
+def run(ip, port, service=None, banner=None):
     result = {
         "vulnerable": False,
         "details": ""

@@ -1,6 +1,7 @@
 import socket
 import os
 import importlib.util
+import time
 
 COMMON_PORTS = {
     21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP",
@@ -72,22 +73,31 @@ def detect_vulnerabilities(banner):
     return None
 
 def detect_os_by_ttl(ip):
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
-        s.settimeout(2)
-        s.sendto(b"\x08\x00\x00\x00\x00\x00\x00\x00", (ip, 1))
-        data, addr = s.recvfrom(1024)
-        ttl = data[8]
-        if ttl >= 128:
-            return f"Possible OS: Windows (TTL={ttl})"
-        elif ttl >= 64:
-            return f"Possible OS: Linux/Unix (TTL={ttl})"
-        else:
-            return f"Unknown OS (TTL={ttl})"
-    except Exception as e:
-        return f"OS detection failed: {e}"
-    finally:
-        s.close()
+    def detect_os_by_ttl(ip):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
+            s.settimeout(1)
+            s.sendto(b'\x08\x00\x7d\x4b\x00\x01\x00\x01', (ip, 0))
+            start = time.time()
+            data, addr = s.recvfrom(1024)
+            end = time.time()
+            ttl = data[8]
+
+            if ttl <= 64:
+                return "Linux/Unix-based (TTL ~64)"
+            elif ttl <= 128:
+                return "Windows-based (TTL ~128)"
+            elif ttl <= 255:
+                return "Cisco/Networking device (TTL ~255)"
+            else:
+                return f"Unknown OS (TTL={ttl})"
+        except Exception as e:
+            return f"OS Detection Failed: {e}"
+        finally:
+            try:
+                s.close()
+            except:
+                pass
 
 def run_scripts(ip, port, banner, script_dir):
     results = []

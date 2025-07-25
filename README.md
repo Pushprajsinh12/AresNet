@@ -1,38 +1,37 @@
 # AresNet 🔍
 
-**Advanced Network & Vulnerability Scanner for Bug Bounty Hunters and Security Analysts**
+**Advanced Network & Vulnerability Scanner for Security Analysts.**
 
 ---
 
 ## 🚀 About AresNet
 
-AresNet is a fast and extensible CLI-based network and vulnerability scanner inspired by tools like Nmap and Nuclei. It supports live scanning of IP addresses and domains with CVE/CWE metadata enrichment, banner grabbing, and real-time vulnerability detection using Nmap NSE scripts.
-
-> ⚠️ Built for ethical use in **VAPT**, **bug bounty**, and **internal assessments** only.
+AresNet is a powerful Python-based advanced network and vulnerability scanner that combines fast TCP/UDP port scanning with advanced NSE scripting. Designed for live reconnaissance, penetration testing.
 
 ---
 
 ## 🔧 Features
 
-* ✅ TCP & UDP port scanning
-* ✅ Banner grabbing
-* ✅ CVE/CWE/Severity metadata enrichment via Vulners API
-* ✅ Nmap integration with NSE script support
-* ✅ OS detection via TTL
-* ✅ Output export to JSON, CSV, and HTML (with severity coloring)
+✅ TCP & UDP port scanning
+✅ Banner grabbing
+✅ CVE/CWE/Severity metadata enrichment via Vulners API
+✅ Nmap integration with NSE script support
+✅ OS detection via TTL
+✅ Output export to JSON, CSV, and HTML (with severity coloring)
 
 ---
 
 ## 📸 Demo
-<img width="602" height="621" alt="Screenshot 2025-07-23 at 1 00 17 PM" src="https://github.com/user-attachments/assets/eb00c764-b2db-4142-9528-44ac5ddae00f" />
+
+<img width="580" height="590" alt="aresnet_helpdesk" src="https://github.com/user-attachments/assets/f3a4e303-e11b-4639-a803-91ff3d11296e" />
 
 <p><em>📌 Help Menu: AresNet's CLI usage and supported flags</em></p>
 
-<img width="588" height="296" alt="Screenshot 2025-07-23 at 12 49 23 PM" src="https://github.com/user-attachments/assets/503fe042-f403-41a7-bac4-7ccf70134f39" />
+<img width="643" height="422" alt="ipscan" src="https://github.com/user-attachments/assets/dcc683cd-0c16-4f51-a577-63e76de259b2" />
 
 <p><em>🚀 Scan Progress with Real-time Output Display</em></p>
 
-<img width="1439" height="774" alt="Screenshot 2025-07-23 at 12 59 11 PM" src="https://github.com/user-attachments/assets/446ebce7-5a2c-4226-8728-665137ba74ab" />
+<img width="1440" height="773" alt="advanced scan" src="https://github.com/user-attachments/assets/2c947e33-2a90-4a54-8119-fb898c511c32" />
 
 <p><em>🔍 Live Scan Output: Scanning IP with detailed vulnerabilities, services, CVSS scores, and references</em></p>
 
@@ -47,7 +46,8 @@ $ python3 aresnet.py -t 103.29.182.94 -p 80 --nmap --json --csv --html
 
 ---
 
-## 🛠️ Installation
+
+🛠️ Installation
 
 1. **Clone the repo**:
 
@@ -56,85 +56,128 @@ git clone https://github.com/Pushprajsinh12/aresnet.git
 cd aresnet
 ```
 
-2. **(Optional) Create a virtual environment**:
+2. **Create a virtual environment**:
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-3. **Install requirements** (only if you want progress bar):
+3. **Install requirements** 
 
 ```bash
 pip install tqdm
 ```
 
-💻 Supported Platforms & Requirements
-AresNet works on:
+---
+
+💻 Supported Platforms & Requirements AresNet works on:
 
 ✅ Kali Linux
 
-✅ macOS 
+✅ macOS
 
-✅ Linux 
+✅ Linux
 
-✅ Windows
+✅ Windows	
 
 📦 Prerequisites
 Requirement Description
 Python 3.8+ Required to run the tool
 Nmap    Required for Nmap-based scans and NSE scripts
-tqdm    (Optional) For visual progress bar
+tqdm    For visual progress bar
 nmap CLI    Must be installed and accessible in your system
 
 ℹ️ Note: On macOS, use brew install nmap. On Debian-based Linux: sudo apt install nmap.
 
-✅ 2. Add pip requirements file (Optional)
-Create a requirements.txt file:
+✅ Add pip requirements file Create a requirements.txt file:
 
-text
-Copy
-Edit
-tqdm
-Then in README:
-
-bash
-Copy
-Edit
-pip install -r requirements.txt
-✅ 3. Mention VENV for Windows
-Update the virtual environment part like this:
-
-bash
-Copy
-Edit
-# Linux/macOS
-python3 -m venv venv
-source venv/bin/activate
-
-# Windows (PowerShell)
-python -m venv venv
-.\venv\Scripts\activate
-
----
-
-## ⚙️ Usage
-
-```bash
-python3 aresnet.py -t <target> -p <port-range> [options]
+```bash 
+pip install -r requirements.txt 
 ```
 
-### 🔍 Basic Examples
+✅ Mention VENV for Windows Update the virtual environment part like this:
+
+#Linux/macOS
 
 ```bash
-# TCP scan with Nmap and all exports
-python3 aresnet.py -t 192.168.1.1 -p 1-1000 --nmap --json --csv --html
-
-# UDP + OS detection + banner grabbing
-python3 aresnet.py -t 192.168.1.1 -p 1-100 --sU -sV -O
+python3 -m venv venv source venv/bin/activate
 ```
 
-### 📂 Options
+#Windows (PowerShell)
+
+```bash
+python -m venv venv .\venv\Scripts\activate
+```
+
+##⚙️ Usage
+
+###Basic Scan
+
+```bash
+python3 aresnet.py -t <target>
+```
+
+###Custom Port Range
+
+```bash
+python3 aresnet.py -t <target> -p 0-65535
+```
+
+###Enable AresNet's Advanced Scan
+
+```bash
+python3 aresnet.py -t <target> --ad-scan
+```
+
+###Skip Host Discovery (for offline hosts)
+
+```bash
+python3 aresnet.py -t <target> --ad-scan --skip-pn
+```
+
+###Run All Available Scripts
+
+```bash
+python3 aresnet.py -t <target> --script=all
+```
+
+###Run Specific Script
+
+```bash
+python3 aresnet.py -t <target> --script=ftp-anon
+```
+
+###Run Multiple Scripts or Categories
+
+```bash
+python3 aresnet.py -t <target> --script=default,vuln,auth
+```
+
+###Run Custom NSE Script File
+
+```bash
+python3 aresnet.py -t <target> --script=/path/to/custom.nse
+```
+
+###Export Report
+
+```bash
+python3 aresnet.py -t <target> --output report.json
+Supports .json, .csv, .html
+```
+
+###📊 Output Sections
+
+TCP Results
+
+UDP Results
+
+TTL-based OS Detection
+
+Vulnerabilities with severity, CVE, CVSS score, and references
+
+###✍️ Flag Reference Table
 
 | Flag                        | Description                                                |
 | --------------------------- | ---------------------------------------------------------- |
@@ -153,10 +196,10 @@ python3 aresnet.py -t 192.168.1.1 -p 1-100 --sU -sV -O
 | `--csv`                     | Export scan results in CSV format                          |
 | `--html`                    | Export scan results in HTML format                         |
 | `--html-file HTML_FILE`     | Custom HTML report filename (default: `scan_results.html`) |
-| `--nmap`                    | Use Nmap scan (requires sudo for full scan)                |
-| `--nmap-noroot`             | Run Nmap without sudo (use `-sT` scan)                     |
-| `--nmap-pn`                 | Treat host as online (skip ping check)                     |
-| `--nmap-script NMAP_SCRIPT` | Run specific NSE script(s), e.g., `vuln`, `http-enum`      |
+| `--ad-scan`                 | Use AresNet Advanced Scan (Nmap-based)                     |
+| `--no-sudo`                 | Run Nmap without sudo (use `-sT` scan)                     |
+| `--skip-pn`                 | Treat host as online (skip ping check)                     |
+| `--script` 				  | Run Nmap NSE scripts (single, multiple, or all)            |
 
 ---
 
@@ -166,9 +209,16 @@ python3 aresnet.py -t 192.168.1.1 -p 1-100 --sU -sV -O
 * `scan_results.csv` – tabular data for Excel or CLI tools.
 * `scan_results.html` – color-coded report for easy viewing.
 
+
+📄 Sample Command
+
+```bash
+python3 aresnet.py -t <target ip> -p 0-65535 --udp --script=all --ad-scan --output scan_report.html
+```
+
 ---
 
-## 🧠 How It Works
+##🧠 How It Works
 
 1. TCP/UDP scans detect live services.
 2. Banners are grabbed and checked against basic signatures.
@@ -178,31 +228,29 @@ python3 aresnet.py -t 192.168.1.1 -p 1-100 --sU -sV -O
 
 ---
 
-## 🤖 Live Bug Bounty Usage
-
+🤖 Live Bug Bounty Usage
 AresNet is designed to scan real IPs for live services and known vulnerabilities using both:
 
-* Nmap scripts like `http-vuln*`, `ftp-anon`, etc.
-* CVE-based enrichment from Vulners.
+*Nmap scripts like `http-vuln*`, `ftp-anon`, etc.
+*CVE-based enrichment from Vulners.
 
-Just pass `--nmap` and you’ll get live metadata-enriched vulnerabilities — useful for bounty recon and reporting.
-
----
-
-## 📌 To-Do
-
-* Add support for config files
-* Passive scanning mode
-* Web dashboard (future)
+Just pass `--ad-scan` and you’ll get live metadata-enriched vulnerabilities — useful for bounty recon and reporting.
 
 ---
 
-## 📄 License
+##📌 To-Do
 
-This project is licensed under the [MIT License](LICENSE).
+*Add support for config files
+*Passive scanning mode
+*Web dashboard (future)
+
+---
+
+##📄 License
+
+This project is licensed under the MIT License.
 
 ---
 
 ## ✨ Contributors
-
 Made by Pushprajsinh Parmar

@@ -256,6 +256,9 @@ def get_severity_label(score):
         return "Unknown"
 
 # === SCRIPT ENGINE ===
+
+script_cache = {}
+
 def run_detection_scripts(ip, port, service, banner):
     results = []
     scripts_dir = 'scripts'
@@ -263,18 +266,35 @@ def run_detection_scripts(ip, port, service, banner):
         return results
 
     for file in os.listdir(scripts_dir):
-        if file.endswith(".py"):
-            script_path = os.path.join(scripts_dir, file)
-            spec = importlib.util.spec_from_file_location("module.name", script_path)
+        if not file.endswith(".py"):
+            continue
+
+        if file == "ftp_vuln.py":
+            if port != 21 and (not service or "ftp" not in service.lower()) and (not banner or "ftp" not in banner.lower()):
+                continue 
+
+        script_path = os.path.join(scripts_dir, file)
+
+        if file not in script_cache:
+            spec = importlib.util.spec_from_file_location(file, script_path)
             mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            script_cache[file] = mod
+        else:
+            mod = script_cache[file]
+
+        if hasattr(mod, 'run'):
             try:
-                spec.loader.exec_module(mod)
-                if hasattr(mod, 'run'):
-                    result = mod.run(ip, port, service, banner)
-                    if result:
-                        results.append(f"{file}: {result}")
+                result = mod.run(ip, port, service, banner)
+                if isinstance(result, dict):
+                    if result.get("vulnerable"):
+                        details = result.get("details", "Vulnerability detected")
+                        results.append(f"{file}: {details}")
+                elif isinstance(result, str):
+                    results.append(f"{file}: {result}")
             except Exception as e:
                 results.append(f"{file} error: {e}")
+
     return results
 
 # === SCANNER ===
@@ -752,19 +772,6 @@ def main():
         all_results = tcp_results + udp_results
 
         run_post_scan_nmap(args, all_results)
-
-        if args.ad_scan:
-            nmap_results = run_nmap_scan(
-            args.target,
-            use_sudo=not args.no_sudo,
-            output_file=args.output,
-            export_json=False,
-            export_csv=False,
-            use_pn=args.skip_pn,
-            script=args.script
-        )
-            nmap_results = enrich_vulnerabilities_with_metadata(nmap_results)
-            all_results += nmap_results
 
         if args.json or args.csv or args.html:
             export_results_to_json_csv(all_results, output_file=args.output, json_enabled=args.json, csv_enabled=args.csv)

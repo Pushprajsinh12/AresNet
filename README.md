@@ -41,7 +41,7 @@ AresNet is a powerful Python-based advanced network and vulnerability scanner th
 
 
 ```bash
-$ python3 aresnet.py -t 103.29.182.94 -p 80 --nmap --json --csv --html
+$ python3 aresnet.py -t 103.29.182.94 -p 80 --ad-scan --script --json --csv --html
 ```
 
 ---

